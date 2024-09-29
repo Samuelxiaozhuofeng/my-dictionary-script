@@ -37,7 +37,7 @@ class AIDictionaryAssistant {
                 model: this.model,
                 messages: [{
                     role: 'user',
-                    content: `Please provide a detailed explanation of the word or sentence: "${query}". Include its meaning, sentence structure, grammar points, and vocabulary analysis.`
+                    content: `Please provide a detailed explanation of the word or sentence: "${query}". Include its meaning, sentence structure, grammar points, and vocabulary analysis. Format your response in HTML with the following sections: <h3>Meaning</h3>, <h3>Sentence Structure</h3>, <h3>Grammar Points</h3>, <h3>Vocabulary Analysis</h3>, and <h3>Example Usage</h3>.`
                 }]
             })
         });
@@ -58,7 +58,10 @@ class AIDictionaryAssistant {
             reading: '',
             extrainfo: '',
             definitions: [
-                `<div class="ai-response">${aiResponse}</div>`
+                `<div class="ai-response">
+                    <h2 class="word-title">${word}</h2>
+                    ${aiResponse}
+                </div>`
             ],
             audios: []
         }];
@@ -71,20 +74,44 @@ class AIDictionaryAssistant {
                 font-family: Arial, sans-serif;
                 line-height: 1.6;
                 color: #333;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f9f9f9;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .ai-response .word-title {
+                color: #2c3e50;
+                text-align: center;
+                font-size: 24px;
+                margin-bottom: 20px;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 10px;
             }
             .ai-response h3 {
-                color: #2c3e50;
+                color: #2980b9;
                 border-bottom: 1px solid #eee;
                 padding-bottom: 5px;
+                margin-top: 20px;
             }
             .ai-response p {
-                margin-bottom: 10px;
+                margin-bottom: 15px;
+                text-align: justify;
             }
             .ai-response .example {
-                background-color: #f0f0f0;
-                padding: 10px;
-                border-left: 3px solid #2980b9;
-                margin: 10px 0;
+                background-color: #e8f4f8;
+                padding: 15px;
+                border-left: 4px solid #3498db;
+                margin: 15px 0;
+                font-style: italic;
+            }
+            .ai-response ul, .ai-response ol {
+                padding-left: 20px;
+                margin-bottom: 15px;
+            }
+            .ai-response li {
+                margin-bottom: 5px;
             }
             </style>
         `;
