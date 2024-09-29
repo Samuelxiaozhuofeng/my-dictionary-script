@@ -1,83 +1,74 @@
-class escn_CollinsDictionary {
-    constructor(options) {
-        this.options = options;
-        this.maxexample = 2;
-        this.word = '';
+class ensp_CollinsDictionary {
+  constructor(options) {
+    this.options = options;
+    this.maxexample = 2;
+    this.word = '';
+  }
+
+  async displayName() {
+    let locale = await api.locale();
+    if (locale.indexOf('CN') != -1 || locale.indexOf('TW') != -1) return 'Collins英西词典';
+    return 'Collins English-Spanish Dictionary';
+  }
+
+  setOptions(options) {
+    this.options = options;
+    this.maxexample = options.maxexample;
+  }
+
+  async findTerm(word) {
+    this.word = word;
+    return await this.findCollins(word);
+  }
+
+  async findCollins(word) {
+    if (!word) return null;
+    let base = 'https://www.collinsdictionary.com/dictionary/english-spanish/';
+    let url = base + encodeURIComponent(word);
+    let doc = '';
+    try {
+      let data = await api.fetch(url);
+      let parser = new DOMParser();
+      doc = parser.parseFromString(data, 'text/html');
+    } catch (err) {
+      return null;
     }
 
-    async displayName() {
-        return 'Collins ES->EN Dictionary';
+    // 根据 Collins 词典的 HTML 结构选择合适的选择器
+    let contents = doc.querySelectorAll('.dictentry') || [];
+    if (contents.length == 0) return null;
+
+    let definition = '';
+    for (const content of contents) {
+      this.removeTags(content, '.copyright');
+      this.removeLinks(content);
+      definition += content.innerHTML;
     }
 
-    setOptions(options) {
-        this.options = options;
-        this.maxexample = options.maxexample;
-    }
+    let css = this.renderCSS();
+    return definition ? css + definition : null;
+  }
 
-    async findTerm(word) {
-        this.word = word;
-        if (!word) return null;
+  removeTags(elem, selector) {
+    let tags = elem.querySelectorAll(selector);
+    tags.forEach(x => { x.outerHTML = ''; });
+  }
 
-        let url = `https://www.collinsdictionary.com/dictionary/spanish-english/${encodeURIComponent(word)}`;
-        try {
-            let data = await api.fetch(url);
-            let doc = new DOMParser().parseFromString(data, 'text/html');
-            return this.processPage(doc);
-        } catch (err) {
-            return null;
-        }
-    }
+  removeLinks(elem) {
+    let tags = elem.querySelectorAll('a');
+    tags.forEach(x => { x.outerHTML = `<span class='link'>${x.innerText}</span>`; });
+  }
 
-    processPage(doc) {
-        let notes = [];
-        let expression = doc.querySelector('.h2_entry')?.textContent.trim();
-        if (!expression) return null;
-
-        let reading = doc.querySelector('.pron')?.textContent.trim();
-        
-        let audioElement = doc.querySelector('.sound');
-        let audios = audioElement ? [`https://www.collinsdictionary.com${audioElement.getAttribute('data-src-mp3')}`] : [];
-
-        let definitionElements = doc.querySelectorAll('.hom');
-        let definitions = [];
-
-        definitionElements.forEach((defElement, index) => {
-            let definition = '';
-            let sense = defElement.querySelector('.sense');
-            if (sense) {
-                let defText = sense.querySelector('.def')?.textContent.trim();
-                let tranText = sense.querySelector('.trans')?.textContent.trim();
-                let exampleText = sense.querySelector('.cit.type-example')?.textContent.trim();
-
-                if (defText) definition += `<p><strong>Definition:</strong> ${defText}</p>`;
-                if (tranText) definition += `<p><strong>Translation:</strong> ${tranText}</p>`;
-                if (exampleText) definition += `<p><strong>Example:</strong> ${exampleText}</p>`;
-            }
-            if (definition) definitions.push(definition);
-        });
-
-        let css = this.renderCSS();
-        notes.push({
-            css,
-            expression,
-            reading,
-            definitions,
-            audios
-        });
-
-        return notes;
-    }
-
-    renderCSS() {
-        return `
-            <style>
-            .collins-dict p {
-                margin-bottom: 5px;
-            }
-            .collins-dict strong {
-                color: #1C6FB8;
-            }
-            </style>
-        `;
-    }
+  renderCSS() {
+    return `
+      <style>
+        .dictentry { font-family: Arial, sans-serif; line-height: 1.6; }
+        .link { color: #1b85e5; }
+        .hom { margin-bottom: 15px; }
+        .sense { margin-left: 20px; }
+        .type-translation { color: #006621; }
+        .quote { font-style: italic; color: #666; }
+      </style>
+    `;
+  }
 }
