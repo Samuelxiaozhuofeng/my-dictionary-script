@@ -1,13 +1,13 @@
-/* global api */
-class AIDict {
+class AIDictionaryAssistant {
     constructor(options) {
         this.options = options;
-        this.apiKey = "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";
-        this.model = "openai/gpt-4o-mini";
+        this.apiKey = 'sk-fquwhejllhrvmnssscizjyzswfjgrwxoihultvftuwahgjno';
+        this.apiUrl = 'https://api.siliconflow.cn/v1/chat/completions';
+        this.model = 'Qwen/Qwen2.5-72B-Instruct';
     }
 
     async displayName() {
-        return 'AI Dictionary (GPT-4)';
+        return 'AI Dictionary Assistant';
     }
 
     setOptions(options) {
@@ -18,70 +18,73 @@ class AIDict {
         if (!word) return null;
 
         try {
-            let definition = await this.queryAI(word);
-            return [this.createNote(word, definition)];
-        } catch (err) {
+            const response = await this.queryAI(word);
+            return this.formatResponse(word, response);
+        } catch (error) {
+            console.error('Error querying AI:', error);
             return null;
         }
     }
 
-    async queryAI(word) {
-        const url = 'https://openrouter.ai/api/v1/chat/completions';
-        const prompt = `请为词语"${word}"提供以下信息：
-1. 简明定义
-2. 词性
-3. 两个使用示例
-请用中文回答，并使用HTML格式化输出。`;
-
-        const response = await fetch(url, {
+    async queryAI(query) {
+        const response = await fetch(this.apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`,
+                'Authorization': `Bearer ${this.apiKey}`
             },
             body: JSON.stringify({
                 model: this.model,
-                messages: [{ role: 'user', content: prompt }],
-            }),
+                messages: [{
+                    role: 'user',
+                    content: `Please provide a detailed explanation of the word or sentence: "${query}". Include its meaning, sentence structure, grammar points, and vocabulary analysis.`
+                }]
+            })
         });
 
         if (!response.ok) {
-            throw new Error('AI API request failed');
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
         return data.choices[0].message.content;
     }
 
-    createNote(word, definition) {
-        return {
-            css: this.renderCSS(),
+    formatResponse(word, aiResponse) {
+        const css = this.renderCSS();
+        return [{
+            css,
             expression: word,
             reading: '',
             extrainfo: '',
-            definitions: [definition],
+            definitions: [
+                `<div class="ai-response">${aiResponse}</div>`
+            ],
             audios: []
-        };
+        }];
     }
 
     renderCSS() {
         return `
             <style>
-            .ai-definition {
-                font-size: 1em;
-                line-height: 1.5;
+            .ai-response {
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
             }
-            .ai-definition h3 {
-                color: #4a4a4a;
-                margin-top: 10px;
-                margin-bottom: 5px;
+            .ai-response h3 {
+                color: #2c3e50;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 5px;
             }
-            .ai-definition p {
-                margin: 5px 0;
+            .ai-response p {
+                margin-bottom: 10px;
             }
-            .ai-definition .example {
-                color: #0077be;
-                font-style: italic;
+            .ai-response .example {
+                background-color: #f0f0f0;
+                padding: 10px;
+                border-left: 3px solid #2980b9;
+                margin: 10px 0;
             }
             </style>
         `;
