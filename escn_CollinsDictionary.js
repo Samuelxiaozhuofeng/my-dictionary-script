@@ -3,11 +3,11 @@ class AIDict {
     constructor(options) {
         this.options = options;
         this.apiKey = "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";
-        this.model = "anthropic/claude-2";  // GPT-4O 对应的是 Claude-2 模型
+        this.model = "anthropic/claude-2";
     }
 
     async displayName() {
-        return 'AI Dictionary (Claude-2)';
+        return 'AI Dictionary (GPT-4)';
     }
 
     setOptions(options) {
@@ -38,8 +38,6 @@ class AIDict {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${this.apiKey}`,
-                'HTTP-Referer': 'https://github.com/your-repo',  // 请替换为您的 GitHub 仓库或网站
-                'X-Title': 'AI Dictionary Extension'
             },
             body: JSON.stringify({
                 model: this.model,
