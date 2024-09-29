@@ -1,119 +1,73 @@
-class AIDictionaryAssistant {
-    constructor(options) {
-        this.options = options;
-        this.apiKey = 'sk-fquwhejllhrvmnssscizjyzswfjgrwxoihultvftuwahgjno';
-        this.apiUrl = 'https://api.siliconflow.cn/v1/chat/completions';
-        this.model = 'Qwen/Qwen2.5-72B-Instruct';
-    }
+// JavaScript script to call OpenRouter API and display result in HTML
 
-    async displayName() {
-        return 'AI Dictionary Assistant';
-    }
+// OpenRouter API key (Ensure this is handled securely in production)
+const API_KEY = "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";
+const MODEL = "gpt-4o-mini";
 
-    setOptions(options) {
-        this.options = options;
-    }
+// Function to get word definition using OpenRouter's GPT-4o-mini model
+async function getWordDefinition(word) {
+    const apiUrl = "https://openrouter.ai/v1/completions";
 
-    async findTerm(word) {
-        if (!word) return null;
+    // Set up request payload
+    const payload = {
+        model: MODEL,
+        prompt: `Please provide a detailed dictionary-style explanation for the word: "${word}". Include definitions, examples, synonyms, antonyms, and usage in sentences.`,
+        max_tokens: 300, // Adjust as needed
+        temperature: 0.5 // Control randomness; 0.5 for balanced responses
+    };
 
-        try {
-            const response = await this.queryAI(word);
-            return this.formatResponse(word, response);
-        } catch (error) {
-            console.error('Error querying AI:', error);
-            return null;
-        }
-    }
+    // Set up request options
+    const options = {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify(payload)
+    };
 
-    async queryAI(query) {
-        const response = await fetch(this.apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`
-            },
-            body: JSON.stringify({
-                model: this.model,
-                messages: [{
-                    role: 'user',
-                    content: `Please provide a detailed explanation of the word or sentence: "${query}". Include its meaning, sentence structure, grammar points, and vocabulary analysis. Format your response in HTML with the following sections: <h3>Meaning</h3>, <h3>Sentence Structure</h3>, <h3>Grammar Points</h3>, <h3>Vocabulary Analysis</h3>, and <h3>Example Usage</h3>.`
-                }]
-            })
-        });
-
+    try {
+        // Fetch data from OpenRouter API
+        const response = await fetch(apiUrl, options);
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`API request failed with status ${response.status}`);
         }
 
+        // Parse response JSON
         const data = await response.json();
-        return data.choices[0].message.content;
-    }
-
-    formatResponse(word, aiResponse) {
-        const css = this.renderCSS();
-        return [{
-            css,
-            expression: word,
-            reading: '',
-            extrainfo: '',
-            definitions: [
-                `<div class="ai-response">
-                    <h2 class="word-title">${word}</h2>
-                    ${aiResponse}
-                </div>`
-            ],
-            audios: []
-        }];
-    }
-
-    renderCSS() {
-        return `
-            <style>
-            .ai-response {
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #f9f9f9;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-            .ai-response .word-title {
-                color: #2c3e50;
-                text-align: center;
-                font-size: 24px;
-                margin-bottom: 20px;
-                border-bottom: 2px solid #3498db;
-                padding-bottom: 10px;
-            }
-            .ai-response h3 {
-                color: #2980b9;
-                border-bottom: 1px solid #eee;
-                padding-bottom: 5px;
-                margin-top: 20px;
-            }
-            .ai-response p {
-                margin-bottom: 15px;
-                text-align: justify;
-            }
-            .ai-response .example {
-                background-color: #e8f4f8;
-                padding: 15px;
-                border-left: 4px solid #3498db;
-                margin: 15px 0;
-                font-style: italic;
-            }
-            .ai-response ul, .ai-response ol {
-                padding-left: 20px;
-                margin-bottom: 15px;
-            }
-            .ai-response li {
-                margin-bottom: 5px;
-            }
-            </style>
-        `;
+        return data.choices[0].text.trim();
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        return null;
     }
 }
+
+// Function to display the result in an HTML format suitable for ANKI
+function displayWordDefinition(word, definition) {
+    const htmlContent = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; padding: 10px; border: 1px solid #ccc;">
+            <h2 style="color: #1C6FB8;">${word}</h2>
+            <div>${definition}</div>
+        </div>
+    `;
+
+    // Display the HTML content in a container (for example, a div with id "output")
+    document.getElementById("output").innerHTML = htmlContent;
+}
+
+// Event listener for the search button
+document.getElementById("searchButton").addEventListener("click", async () => {
+    const word = document.getElementById("wordInput").value.trim();
+    if (word) {
+        // Fetch word definition
+        const definition = await getWordDefinition(word);
+        if (definition) {
+            // Display word definition in HTML format
+            displayWordDefinition(word, definition);
+        } else {
+            alert("Unable to retrieve definition. Please try again later.");
+        }
+    } else {
+        alert("Please enter a word to search.");
+    }
+});
