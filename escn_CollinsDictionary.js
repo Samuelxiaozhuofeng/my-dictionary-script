@@ -1,56 +1,70 @@
+/* global api */
 class escn_CollinsDictionary {
-    constructor() {
-        this.name = "Collins Spanish-English Dictionary";
-        this.baseUrl = "https://www.collinsdictionary.com/dictionary/spanish-english/";
+    constructor(options) {
+        this.options = options;
+        this.baseUrl = 'https://www.collinsdictionary.com/dictionary/spanish-english/';
     }
 
-    findTerm(word) {
-        return new Promise((resolve, reject) => {
-            let url = this.baseUrl + encodeURIComponent(word);
-            
-            fetch(url)
-                .then(response => response.text())
-                .then(html => {
-                    let definition = this.extractDefinition(html);
-                    resolve(definition);
-                })
-                .catch(error => {
-                    reject(error);
-                });
-        });
+    async displayName() {
+        let locale = await api.locale();
+        if (locale.indexOf('CN') != -1) return '柯林斯西英词典';
+        if (locale.indexOf('TW') != -1) return '柯林斯西英詞典';
+        return 'Collins Spanish-English Dictionary';
     }
 
-    extractDefinition(html) {
-        let parser = new DOMParser();
-        let doc = parser.parseFromString(html, 'text/html');
-        
-        let result = "";
-        
-        // 提取西班牙语单词
-        let spanishWord = doc.querySelector('.h2_entry');
-        if (spanishWord) {
-            result += `西班牙语: ${spanishWord.textContent.trim()}\n\n`;
+    setOptions(options) {
+        this.options = options;
+    }
+
+    async findTerm(word) {
+        if (!word) return null;
+
+        let url = this.baseUrl + encodeURIComponent(word);
+        try {
+            let html = await api.fetch(url);
+            let parser = new DOMParser();
+            let doc = parser.parseFromString(html, 'text/html');
+            let definitions = this.parseDefinitions(doc);
+            return definitions;
+        } catch (err) {
+            return null;
         }
-        
-        // 提取音标
-        let pronunciation = doc.querySelector('.pron');
-        if (pronunciation) {
-            result += `发音: ${pronunciation.textContent.trim()}\n\n`;
+    }
+
+    parseDefinitions(doc) {
+        let notes = [];
+
+        function T(node) {
+            if (!node) return '';
+            return node.innerText.trim();
         }
-        
-        // 提取定义
-        let definitions = doc.querySelectorAll('.sense');
-        if (definitions.length > 0) {
-            result += "定义:\n";
-            definitions.forEach((def, index) => {
-                let spanishDef = def.querySelector('.cit.type-translation');
-                let englishDef = def.querySelector('.cit.type-translation.quote');
-                if (spanishDef && englishDef) {
-                    result += `${index + 1}. ${spanishDef.textContent.trim()} - ${englishDef.textContent.trim()}\n`;
-                }
+
+        let headsection = doc.querySelector('.dictionary .entry');
+        if (!headsection) return null;
+
+        let expression = T(headsection.querySelector('.orth'));
+        let reading = T(headsection.querySelector('.phon'));
+
+        let definitions = [];
+        let defElements = headsection.querySelectorAll('.sense');
+        defElements.forEach(def => {
+            let defText = T(def.querySelector('.def'));
+            let examples = [];
+            def.querySelectorAll('.quote').forEach(quote => {
+                examples.push(T(quote));
             });
-        }
-        
-        return result || "未找到定义";
+            definitions.push({
+                definition: defText,
+                examples: examples
+            });
+        });
+
+        notes.push({
+            expression,
+            reading,
+            definitions
+        });
+
+        return notes;
     }
 }
