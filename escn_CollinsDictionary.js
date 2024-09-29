@@ -3,7 +3,7 @@ class AIDict {
     constructor(options) {
         this.options = options;
         this.apiKey = "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";
-        this.model = "anthropic/claude-2";
+        this.model = "openai/gpt-4";
     }
 
     async displayName() {
