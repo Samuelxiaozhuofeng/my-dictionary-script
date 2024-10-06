@@ -1,13 +1,14 @@
 /* global api */
-class AIDict {
+class GPT4o_Dictionary {
     constructor(options) {
         this.options = options;
-        this.apiKey = "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";
-        this.model = "openai/gpt-4";
+        this.word = '';
+        this.apiKey = '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'; // 这里填写你的OpenRouter API密钥
+        this.apiUrl = 'https://api.openrouter.ai/v1/completions'; // OpenRouter的API地址
     }
 
     async displayName() {
-        return 'AI Dictionary (GPT-4)';
+        return 'GPT-4o Dictionary (ES->EN)';
     }
 
     setOptions(options) {
@@ -15,74 +16,57 @@ class AIDict {
     }
 
     async findTerm(word) {
+        this.word = word;
         if (!word) return null;
 
+        // 通过OpenRouter API查询单词
+        let query = `Define the Spanish word "${word}" and provide synonyms.`;
+        let response = await this.queryGPT4o(query);
+        if (!response) return null;
+
+        return this.formatResult(response);
+    }
+
+    async queryGPT4o(query) {
         try {
-            let definition = await this.queryAI(word);
-            return [this.createNote(word, definition)];
+            let response = await fetch(this.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    prompt: query,
+                    max_tokens: 150
+                })
+            });
+
+            let data = await response.json();
+            return data.choices[0].text.trim();
         } catch (err) {
+            console.error("Error querying GPT-4o: ", err);
             return null;
         }
     }
 
-    async queryAI(word) {
-        const url = 'https://openrouter.ai/api/v1/chat/completions';
-        const prompt = `请为词语"${word}"提供以下信息：
-1. 简明定义
-2. 词性
-3. 两个使用示例
-请用中文回答，并使用HTML格式化输出。`;
+    formatResult(response) {
+        // 格式化从GPT-4o获得的结果以适合显示
+        let definitions = response.split('\n').map(line => `<span class="exp">${line}</span>`);
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`,
-            },
-            body: JSON.stringify({
-                model: this.model,
-                messages: [{ role: 'user', content: prompt }],
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error('AI API request failed');
-        }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
-    }
-
-    createNote(word, definition) {
-        return {
-            css: this.renderCSS(),
-            expression: word,
-            reading: '',
-            extrainfo: '',
-            definitions: [definition],
-            audios: []
-        };
+        let css = this.renderCSS();
+        return [{
+            css,
+            expression: this.word,
+            definitions: definitions,
+            audios: []  // GPT-4o没有语音功能，但可扩展
+        }];
     }
 
     renderCSS() {
         return `
             <style>
-            .ai-definition {
-                font-size: 1em;
-                line-height: 1.5;
-            }
-            .ai-definition h3 {
-                color: #4a4a4a;
-                margin-top: 10px;
-                margin-bottom: 5px;
-            }
-            .ai-definition p {
-                margin: 5px 0;
-            }
-            .ai-definition .example {
-                color: #0077be;
-                font-style: italic;
-            }
+            span.exp { display: block; color: #333; font-size: 1em; }
             </style>
         `;
     }
