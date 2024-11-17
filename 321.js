@@ -8,8 +8,8 @@ class eszh_GPT4ODH {
 
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'GPT-41 西班牙语->中文词典';
-        if (locale.indexOf('TW') != -1) return 'GPT-41 西班牙语->中文词典';
+        if (locale.indexOf('CN') != -1) return 'GPT-4 西班牙语->中文词典';
+        if (locale.indexOf('TW') != -1) return 'GPT-4 西班牙语->中文词典';
         return 'GPT-4 ES->ZH Dictionary';
     }
 
@@ -20,7 +20,13 @@ class eszh_GPT4ODH {
     async findTerm(word, sentence) {
         this.word = word;
         this.context = sentence;
-        return await this.translateWithGPT4(word, sentence);
+        const result = await this.translateWithGPT4(word, sentence);
+        if (result) {
+            this.displayResult(result);
+        } else {
+            console.error('No translation found');
+        }
+        return result;
     }
 
     async translateWithGPT4(word, context) {
@@ -61,6 +67,28 @@ class eszh_GPT4ODH {
             console.error('Translation error:', error);
             return null;
         }
+    }
+
+    displayResult(result) {
+        // 创建一个浮动的弹出框来显示翻译结果
+        let resultBox = document.createElement('div');
+        resultBox.style.position = 'fixed';
+        resultBox.style.bottom = '20px';
+        resultBox.style.right = '20px';
+        resultBox.style.backgroundColor = '#fff';
+        resultBox.style.border = '1px solid #ccc';
+        resultBox.style.padding = '10px';
+        resultBox.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.2)';
+        resultBox.style.zIndex = '1000';
+        resultBox.innerHTML = `<strong>翻译结果:</strong><br>${result}`;
+
+        // 添加到文档中
+        document.body.appendChild(resultBox);
+
+        // 设置5秒后自动移除
+        setTimeout(() => {
+            document.body.removeChild(resultBox);
+        }, 5000);
     }
 }
 
