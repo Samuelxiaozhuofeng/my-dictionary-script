@@ -2,7 +2,7 @@
 class encn_QwenDict {
     constructor() {
         this.apiKey = 'sk-fwzctttjlftqmedzftdfvowpxpnchohlbxbmyompgspcyxeg';
-        this.baseURL = 'https://api.siliconflow.com/v1/chat/completions';
+        this.baseURL = 'https://api.siliconflow.cn/v1/chat/completions';
         this.word = '';
     }
 
