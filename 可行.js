@@ -9,8 +9,8 @@ class encn_QwenDict {
     // 显示词典名称
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'Qwen1英汉词典';
-        if (locale.indexOf('TW') != -1) return 'Qwen1英漢詞典';
+        if (locale.indexOf('CN') != -1) return 'Qwen2英汉词典';
+        if (locale.indexOf('TW') != -1) return 'Qwen2英漢詞典';
         return 'Qwen EN->CN Dictionary';
     }
 
@@ -24,7 +24,7 @@ class encn_QwenDict {
         return [
             {
                 role: "system",
-                content: "你是一个专业的英汉词典助手。请针对用户输入的英文单词提供简明的中文释义，包含以下内容：1.发音 2.词性 3.中文含义 4.例句(中英对照)"
+                content: "你是一个语言专家，能够识别句子的语言，并对其进行解释说明。"
             },
             {
                 role: "user",
