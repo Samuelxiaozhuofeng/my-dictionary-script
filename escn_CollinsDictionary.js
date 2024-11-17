@@ -1,95 +1,146 @@
-class eszh_GPT4Translator {
+/* global api */
+class escn_AIDict {
     constructor(options) {
         this.options = options;
-        this.apiKey = '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';
-        this.apiUrl = 'https://api.openrouter.ai/v1/completions';
         this.word = '';
-        this.sentence = '';
+        this.apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
+        this.apiKey = options?.apiKey || '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';
+        this.model = 'gpt-4';
+        this.headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+            'HTTP-Referer': 'https://github.com/ninja33/ODH',
+            'X-Title': 'ODH Plugin'
+        };
     }
 
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'GPT-4o 西-中 词典';
-        if (locale.indexOf('TW') != -1) return 'GPT-4o 西-中 词典';
-        return 'GPT-4o ES->ZH Dictionary';
+        if (locale.indexOf('CN') != -1) return 'AI上下文翻译';
+        if (locale.indexOf('TW') != -1) return 'AI上下文翻译';
+        return 'AI Context Translation';
     }
 
     setOptions(options) {
         this.options = options;
+        if (options?.apiKey) {
+            this.apiKey = options.apiKey;
+            this.headers.Authorization = `Bearer ${this.apiKey}`;
+        }
     }
 
-    async findTerm(word, sentence) {
-        this.word = word;
-        this.sentence = sentence;
-        return await this.queryGPT4o(word, sentence);
-    }
+    async callAIAPI(word, context) {
+        const prompt = `
+请分析以下西班牙语中的词语。
+目标词语是："${word}"
+词语所在句子是："${context}"
 
-    async queryGPT4o(word, sentence) {
-        if (!word) return null;
-        
-        // Prepare the prompt for GPT-4o
-        const prompt = `请根据以下句子中的语境，解释并翻译其中的词汇 "${word}" 。句子："${sentence}"。`;
-        
-        // Setup request payload
-        const payload = {
-            model: 'gpt-4o',
-            prompt: prompt,
-            max_tokens: 150,
-            temperature: 0.7,
-            top_p: 1.0
-        };
-        
-        // Set up request headers
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
-        };
+请按照以下格式提供分析（务必保持格式统一）：
+
+基本释义：[给出最符合上下文的中文释义]
+词性：[标注词性]
+句子翻译：[将整句翻译成中文]
+重点分析：[分析该词在此语境中的具体含义和作用]
+其他说明：[补充该词的其他常用含义或用法]
+`;
 
         try {
-            // Send the request to the API
-            let response = await fetch(this.apiUrl, {
+            const response = await fetch(this.apiEndpoint, {
                 method: 'POST',
-                headers: headers,
-                body: JSON.stringify(payload)
+                headers: this.headers,
+                body: JSON.stringify({
+                    model: this.model,
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt
+                        }
+                    ]
+                })
             });
 
             if (!response.ok) {
                 throw new Error('API request failed');
             }
 
-            let data = await response.json();
-            let explanation = data.choices && data.choices.length > 0 ? data.choices[0].text.trim() : null;
-
-            if (!explanation) return null;
-
-            // Return explanation as HTML content
-            let css = this.renderCSS();
-            return css + `<div class='gpt4-response'>${explanation}</div>`;
-        } catch (err) {
-            console.error('Error fetching from GPT-4o API:', err);
-            return null;
+            const data = await response.json();
+            return data.choices[0].message.content;
+        } catch (error) {
+            console.error('AI API Error:', error);
+            return `翻译服务暂时不可用: ${error.message}`;
         }
     }
 
-    renderCSS() {
-        let css = `
-            <style>
-            .gpt4-response {
-                font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                background-color: #f9f9f9;
-                padding: 10px;
-                border-radius: 4px;
+    formatResponse(aiResponse) {
+        if (!aiResponse) return null;
+        
+        // 将格式化的响应转换为HTML
+        const formattedResponse = aiResponse
+            .replace(/(基本释义|词性|句子翻译|重点分析|其他说明)：/g, '<div class="section-title">$1：</div>')
+            .replace(/\[([^\]]+)\]/g, '<div class="content">$1</div>')
+            .replace(/\n/g, '<br>');
+        
+        return `
+            <div class="ai-translation">
+                ${formattedResponse}
+            </div>
+        `;
+    }
+
+    async findTerm(word, context) {  // 修改这里，接收context参数
+        this.word = word;
+        
+        // 使用传入的context，如果没有则使用word本身
+        const sentence = context || word;
+        
+        return new Promise(async (resolve, reject) => {
+            try {
+                console.log('Processing word:', word);  // 调试日志
+                console.log('Context:', sentence);      // 调试日志
+                
+                const aiResponse = await this.callAIAPI(word, sentence);
+                const formattedResponse = this.formatResponse(aiResponse);
+                const css = this.renderCSS();
+                resolve(formattedResponse ? css + formattedResponse : null);
+            } catch (error) {
+                console.error('Processing error:', error);  // 调试日志
+                reject(error);
             }
-            </style>`;
-        return css;
+        });
+    }
+
+    renderCSS() {
+        return `
+            <style>
+                .ai-translation {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    padding: 15px;
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .ai-translation .section-title {
+                    color: #2c5282;
+                    font-weight: 600;
+                    margin-top: 10px;
+                }
+                .ai-translation .content {
+                    color: #1a202c;
+                    padding: 5px 0;
+                }
+                .ai-translation br {
+                    margin-bottom: 4px;
+                }
+            </style>
+        `;
     }
 }
 
 /*
 使用说明：
 1. 将此类保存到插件的词典目录下。
-2. 在插件的选项中，启用此自定义词典以便使用GPT-4o进行西班牙语到中文的翻译。
-3. 用户在网页中划词后，插件将会调用此脚本，通过GPT-4o提供结合上下文的翻译和解释。
+2. 在插件的选项中，启用此自定义词典以便使用GPT-4进行西班牙语到中文的翻译。
+3. 用户在网页中划词后，插件将会调用此脚本，通过GPT-4提供结合上下文的翻译和解释。
 */
