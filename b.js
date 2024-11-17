@@ -1,122 +1,133 @@
-class escn_GPTDict {
-    constructor(options) {
-        this.options = options;
-        this.api_key = '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';
-        this.model = 'gpt-4';
-        this.baseURL = 'https://openrouter.ai/api/v1/chat/completions';
+/* global api */
+class encn_QwenContextDict {
+    constructor() {
+        this.apiKey = 'sk-fwzctttjlftqmedzftdfvowpxpnchohlbxbmyompgspcyxeg';
+        this.baseURL = 'https://api.siliconflow.cn/v1/chat/completions';
+        this.word = '';
+        this.context = '';
     }
 
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'GPT西汉词典';
-        if (locale.indexOf('TW') != -1) return 'GPT西漢詞典';
-        return 'GPT Spanish-Chinese Dictionary';
+        if (locale.indexOf('CN') != -1) return 'Qwen1上下文英汉词典';
+        if (locale.indexOf('TW') != -1) return 'Qwen1上下文英漢詞典';
+        return 'Qwen Context EN->CN Dictionary';
     }
 
+    setOptions(options) {
+        this.options = options;
+    }
+
+    // 获取选中文本的上下文句子
+    getContextSentence(text, word) {
+        // 将整个文本按句子分割（考虑多种句号）
+        const sentences = text.split(/(?<=[.!?。！？])\s+/);
+        
+        // 查找包含目标词的句子
+        for (let sentence of sentences) {
+            if (sentence.includes(word)) {
+                return sentence.trim();
+            }
+        }
+        
+        return word; // 如果找不到上下文句子，返回单词本身
+    }
+
+    // 构建带上下文的API请求消息
+    buildMessage(word, context) {
+        return [
+            {
+                role: "system",
+                content: `你是一个专业的英汉词典助手。我会给你一个英文单词和它所在的句子。
+请你：
+1. 给出单词的发音
+2. 分析单词在句子中的词性
+3. 给出单词在这个具体语境下最准确的中文含义
+4. 解释为什么在这个语境下应该这样翻译
+5. 提供这个单词的其他常见含义
+6. 造一个相似语境的例句(中英对照)
+
+请用markdown格式输出。`
+            },
+            {
+                role: "user",
+                content: `单词：${word}\n上下文句子：${context}`
+            }
+        ];
+    }
+
+    // 发送API请求
+    async requestTranslation(word, context) {
+        const response = await fetch(this.baseURL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.apiKey}`
+            },
+            body: JSON.stringify({
+                model: "Qwen/Qwen2.5-72B-Instruct",
+                messages: this.buildMessage(word, context),
+                temperature: 0.7,
+                max_tokens: 1000
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    }
+
+    // 格式化API返回的内容
+    formatContent(content) {
+        // 将markdown转换为HTML
+        return content
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // 粗体
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')              // 斜体
+            .replace(/\n\n/g, '<br><br>')                      // 段落
+            .replace(/\n/g, '<br>')                            // 换行
+            .replace(/#{1,6} (.*?)\n/g, '<div class="dict-header">$1</div>'); // 标题
+    }
+
+    // 主查询函数
     async findTerm(word) {
+        this.word = word;
+        
         return new Promise(async (resolve, reject) => {
             try {
-                const result = await this.queryGPT(word);
-                const formattedResult = this.formatResult(result);
-                resolve(this.renderResult(formattedResult));
+                // 获取选中文本周围的上下文
+                let selection = window.getSelection();
+                let context = '';
+                
+                if (selection && selection.rangeCount > 0) {
+                    // 获取选中文本所在的段落或更大的容器
+                    let container = selection.getRangeAt(0).commonAncestorContainer;
+                    while (container && container.nodeType !== Node.ELEMENT_NODE) {
+                        container = container.parentNode;
+                    }
+                    
+                    if (container) {
+                        context = this.getContextSentence(container.textContent, word);
+                    }
+                }
+
+                // 如果没有找到上下文，使用单词本身
+                if (!context) {
+                    context = word;
+                }
+
+                let content = await this.requestTranslation(word, context);
+                content = this.formatContent(content);
+                
+                // 添加样式类以便于CSS定制
+                content = `<div class="qwen-dict-content">${content}</div>`;
+                
+                resolve(content);
             } catch (error) {
                 reject(error);
             }
         });
-    }
-
-    async queryGPT(text) {
-        const headers = {
-            'Authorization': `Bearer ${this.api_key}`,
-            'Content-Type': 'application/json'
-        };
-
-        const prompt = `请将以下西班牙语${text.length > 10 ? '句子' : '单词'}翻译成中文，并提供详细解释：
-        "${text}"
-        
-        请按照以下格式回复：
-        翻译：[中文翻译]
-        解释：[详细解释，包括语法点、用法等]`;
-
-        const body = {
-            'model': this.model,
-            'messages': [{
-                'role': 'user',
-                'content': prompt
-            }]
-        };
-
-        try {
-            const response = await fetch(this.baseURL, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(body)
-            });
-
-            if (!response.ok) throw new Error('API request failed');
-            
-            const data = await response.json();
-            return data.choices[0].message.content;
-        } catch (error) {
-            throw new Error(`GPT API Error: ${error.message}`);
-        }
-    }
-
-    formatResult(gptResponse) {
-        // 分离翻译和解释部分
-        const translation = gptResponse.match(/翻译：([\s\S]*?)(?=解释：)/)?.[1]?.trim() || '';
-        const explanation = gptResponse.match(/解释：([\s\S]*)/)?.[1]?.trim() || '';
-
-        return {
-            translation,
-            explanation
-        };
-    }
-
-    renderResult(result) {
-        const css = this.renderCSS();
-        const html = `
-            <div class="gpt-result">
-                <div class="translation">
-                    <div class="title">翻译</div>
-                    <div class="content">${result.translation}</div>
-                </div>
-                <div class="explanation">
-                    <div class="title">解释</div>
-                    <div class="content">${result.explanation}</div>
-                </div>
-            </div>
-        `;
-
-        return css + html;
-    }
-
-    renderCSS() {
-        return `
-            <style>
-                .gpt-result {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    padding: 10px;
-                    line-height: 1.5;
-                }
-                .translation, .explanation {
-                    margin-bottom: 15px;
-                }
-                .title {
-                    font-weight: bold;
-                    color: #4a4a4a;
-                    margin-bottom: 5px;
-                }
-                .content {
-                    color: #2c3e50;
-                    background: #f8f9fa;
-                    padding: 8px;
-                    border-radius: 4px;
-                }
-                .explanation .content {
-                    white-space: pre-wrap;
-                }
-            </style>
-        `;
     }
 }
