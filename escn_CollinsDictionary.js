@@ -4,7 +4,7 @@ class escn_AIDict {
         this.options = options;
         this.word = '';
         this.apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
-        this.apiKey = options?.apiKey || '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';
+        this.apiKey = options?.apiKey || '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';
         this.model = 'gpt-4';
         this.headers = {
             'Content-Type': 'application/json',
@@ -137,10 +137,3 @@ class escn_AIDict {
         `;
     }
 }
-
-/*
-使用说明：
-1. 将此类保存到插件的词典目录下。
-2. 在插件的选项中，启用此自定义词典以便使用GPT-4进行西班牙语到中文的翻译。
-3. 用户在网页中划词后，插件将会调用此脚本，通过GPT-4提供结合上下文的翻译和解释。
-*/
