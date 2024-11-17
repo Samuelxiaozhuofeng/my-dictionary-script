@@ -1,137 +1,116 @@
 /* global api */
-class escn_AIDict {
+class escn_GPTDict {
     constructor(options) {
         this.options = options;
         this.word = '';
-        this.apiEndpoint = 'https://api.tu-zi.com/v1';
-        this.apiKey = options?.apiKey || 'sk-6y6iAyxmasnogzfI1aUGbXA3yx1u3HVWx2t2O3QaIQ135uum';
-        this.model = 'gpt-4o';
-        this.headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
-            'HTTP-Referer': 'https://github.com/ninja33/ODH',
-            'X-Title': 'ODH Plugin'
-        };
+        this.apiKey = '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';
+        this.apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
     }
 
     async displayName() {
-        let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'AI上下文翻译';
-        if (locale.indexOf('TW') != -1) return 'AI上下文翻译';
-        return 'AI Context Translation';
+        return 'GPT西汉智能词典';
     }
 
     setOptions(options) {
         this.options = options;
-        if (options?.apiKey) {
-            this.apiKey = options.apiKey;
-            this.headers.Authorization = `Bearer ${this.apiKey}`;
-        }
     }
 
-    async callAIAPI(word, context) {
+    // 获取选中词汇所在的句子
+    extractSentence(text, word) {
+        const sentences = text.match(/[^.!?。！？]+[.!?。！？]+/g) || [text];
+        return sentences.find(sentence => sentence.includes(word)) || word;
+    }
+
+    async findTerm(word) {
+        this.word = word;
+        
+        // 获取当前页面的文本内容
+        const pageText = document.body.innerText;
+        const contextSentence = this.extractSentence(pageText, word);
+
+        // 构建发送给GPT的提示
         const prompt = `
-请分析以下西班牙语中的词语。
-目标词语是："${word}"
-词语所在句子是："${context}"
+请你作为西班牙语翻译专家，解析以下句子中的"${word}"：
 
-请按照以下格式提供分析（务必保持格式统一）：
+句子上下文：${contextSentence}
 
-基本释义：[给出最符合上下文的中文释义]
-词性：[标注词性]
-句子翻译：[将整句翻译成中文]
-重点分析：[分析该词在此语境中的具体含义和作用]
-其他说明：[补充该词的其他常用含义或用法]
+请按照以下格式提供分析：
+1. 词性：
+2. 基本含义：
+3. 在此句中的具体含义：
+4. 词形变化（如果有）：
+5. 使用说明：
+
+请用中文回答。
 `;
 
         try {
-            const response = await fetch(this.apiEndpoint, {
+            const response = await fetch(this.apiUrl, {
                 method: 'POST',
-                headers: this.headers,
+                headers: {
+                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
-                    model: this.model,
-                    messages: [
-                        {
-                            role: "user",
-                            content: prompt
-                        }
-                    ]
+                    model: 'gpt-4',
+                    messages: [{
+                        role: 'user',
+                        content: prompt
+                    }]
                 })
             });
 
-            if (!response.ok) {
-                throw new Error('API request failed');
+            const data = await response.json();
+            if (!data.choices || !data.choices[0]) {
+                throw new Error('No response from GPT');
             }
 
-            const data = await response.json();
-            return data.choices[0].message.content;
+            const analysis = data.choices[0].message.content;
+            return this.formatResponse(analysis);
         } catch (error) {
-            console.error('AI API Error:', error);
-            return `翻译服务暂时不可用: ${error.message}`;
+            console.error('GPT API Error:', error);
+            return null;
         }
     }
 
-    formatResponse(aiResponse) {
-        if (!aiResponse) return null;
+    formatResponse(analysis) {
+        // 添加样式
+        const css = this.renderCSS();
         
-        // 将格式化的响应转换为HTML
-        const formattedResponse = aiResponse
-            .replace(/(基本释义|词性|句子翻译|重点分析|其他说明)：/g, '<div class="section-title">$1：</div>')
-            .replace(/\[([^\]]+)\]/g, '<div class="content">$1</div>')
-            .replace(/\n/g, '<br>');
-        
-        return `
-            <div class="ai-translation">
-                ${formattedResponse}
+        // 格式化GPT返回的内容
+        const formattedContent = `
+            <div class="gpt-dict-container">
+                <div class="word-header">${this.word}</div>
+                <div class="analysis-content">
+                    ${analysis.replace(/\n/g, '<br>')}
+                </div>
             </div>
         `;
-    }
 
-    async findTerm(word, context) {  // 修改这里，接收context参数
-        this.word = word;
-        
-        // 使用传入的context，如果没有则使用word本身
-        const sentence = context || word;
-        
-        return new Promise(async (resolve, reject) => {
-            try {
-                console.log('Processing word:', word);  // 调试日志
-                console.log('Context:', sentence);      // 调试日志
-                
-                const aiResponse = await this.callAIAPI(word, sentence);
-                const formattedResponse = this.formatResponse(aiResponse);
-                const css = this.renderCSS();
-                resolve(formattedResponse ? css + formattedResponse : null);
-            } catch (error) {
-                console.error('Processing error:', error);  // 调试日志
-                reject(error);
-            }
-        });
+        return css + formattedContent;
     }
 
     renderCSS() {
         return `
             <style>
-                .ai-translation {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-                    line-height: 1.6;
-                    color: #333;
+                .gpt-dict-container {
+                    font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
                     padding: 15px;
-                    background-color: #f8f9fa;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    line-height: 1.5;
                 }
-                .ai-translation .section-title {
-                    color: #2c5282;
-                    font-weight: 600;
-                    margin-top: 10px;
+                .word-header {
+                    font-size: 1.2em;
+                    font-weight: bold;
+                    color: #2c3e50;
+                    margin-bottom: 10px;
+                    padding-bottom: 5px;
+                    border-bottom: 2px solid #3498db;
                 }
-                .ai-translation .content {
-                    color: #1a202c;
-                    padding: 5px 0;
+                .analysis-content {
+                    color: #34495e;
                 }
-                .ai-translation br {
-                    margin-bottom: 4px;
+                .analysis-content br {
+                    margin: 5px 0;
                 }
             </style>
         `;
