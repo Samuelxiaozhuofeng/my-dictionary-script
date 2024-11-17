@@ -8,8 +8,8 @@ class eszh_GPT4ODH {
 
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'GPT-4 西班牙语->中文词典';
-        if (locale.indexOf('TW') != -1) return 'GPT-4 西班牙语->中文词典';
+        if (locale.indexOf('CN') != -1) return 'GPT-41 西班牙语->中文词典';
+        if (locale.indexOf('TW') != -1) return 'GPT-41 西班牙语->中文词典';
         return 'GPT-4 ES->ZH Dictionary';
     }
 
@@ -27,7 +27,7 @@ class eszh_GPT4ODH {
         if (!word || !context) return null;
 
         let apiKey = 'sk-6y6iAyxmasnogzfI1aUGbXA3yx1u3HVWx2t2O3QaIQ135uum';
-        let endpoint = 'https://api.tu-zi.com/v1/completions';
+        let endpoint = 'https://api.tu-zi.com/v1';
         let prompt = `请将以下句子中的词汇 "${word}" 结合上下文翻译成中文：\n\n句子：${context}`;
 
         let payload = {
