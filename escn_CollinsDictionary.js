@@ -3,17 +3,14 @@ class escn_AIDict {
     constructor(options) {
         this.options = options;
         this.word = '';
-        // OpenRouter API配置
         this.apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
         this.apiKey = options?.apiKey || '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';
-        this.model = 'gpt-4o'; // 使用GPT-4模型
-        
-        // 添加必要的headers
+        this.model = 'gpt-4';
         this.headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${this.apiKey}`,
-            'HTTP-Referer': 'https://github.com/ninja33/ODH', // OpenRouter需要referer
-            'X-Title': 'ODH Plugin'  // OpenRouter建议的标题
+            'HTTP-Referer': 'https://github.com/ninja33/ODH',
+            'X-Title': 'ODH Plugin'
         };
     }
 
@@ -26,38 +23,63 @@ class escn_AIDict {
 
     setOptions(options) {
         this.options = options;
-        // 允许通过选项更新API密钥
         if (options?.apiKey) {
             this.apiKey = options.apiKey;
             this.headers.Authorization = `Bearer ${this.apiKey}`;
         }
     }
 
-    // 获取选中词汇所在的句子
-    extractSentence(word, text) {
-        // 简单的句子提取逻辑，可以根据需要优化
-        const sentences = text.split(/[.!?。！？]\s+/);
-        for (let sentence of sentences) {
-            if (sentence.includes(word)) {
-                return sentence.trim();
+    // 改进的上下文提取方法
+    extractContext(word) {
+        try {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return word;
+
+            const range = selection.getRangeAt(0);
+            let container = range.commonAncestorContainer;
+            
+            // 向上查找到最近的段落或标题元素
+            while (container && 
+                   container.nodeType !== Node.ELEMENT_NODE && 
+                   !['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'ARTICLE'].includes(container.nodeName)) {
+                container = container.parentNode;
             }
+
+            // 如果没找到合适的容器，返回单词本身
+            if (!container) return word;
+
+            // 获取包含选中词的完整句子
+            const text = container.textContent || container.innerText;
+            const sentences = text.split(/([.!?。！？]+[\s\n]+|$)/g);
+            
+            for (let i = 0; i < sentences.length; i++) {
+                if (sentences[i].includes(word)) {
+                    // 获取前后句子进行拼接，提供更多上下文
+                    const prevSentence = i > 0 ? sentences[i-1] : '';
+                    const nextSentence = i < sentences.length - 1 ? sentences[i+1] : '';
+                    return (prevSentence + sentences[i] + nextSentence).trim();
+                }
+            }
+        } catch (e) {
+            console.error('Context extraction error:', e);
         }
-        return word; // 如果找不到完整句子，则返回单词本身
+        return word;
     }
 
-    // 调用AI API进行翻译
     async callAIAPI(word, context) {
         const prompt = `
-请将以下西班牙语单词进行翻译，并提供分析。请按照以下格式返回：
-词语：[西班牙语单词]
-上下文：[所在句子]
-释义：[中文翻译]
-词性：[词性说明]
-语境分析：[根据上下文解释该词在句子中的具体含义]
-例句：[另外举一个例句]
+请分析以下西班牙语中的词语。给出的上下文是：
 
-单词: ${word}
-上下文句子: ${context}
+"${context}"
+
+需要分析的词语是："${word}"
+
+请按照以下格式提供分析：
+1. 基本释义：[给出最符合上下文的中文释义]
+2. 词性：[说明词性]
+3. 上下文分析：[分析该词在这句话中的具体含义和用法]
+4. 常见用法：[列举1-2个这个词的其他常见用法]
+5. 相关例句：[提供一个能体现相似用法的例句]
 `;
 
         try {
@@ -87,32 +109,26 @@ class escn_AIDict {
         }
     }
 
-    // 格式化AI返回的结果
     formatResponse(aiResponse) {
         if (!aiResponse) return null;
         
+        // 添加样式类以区分不同部分
+        const formattedResponse = aiResponse
+            .replace(/(\d+\.\s*[^：:]+[：:])/g, '<div class="section-title">$1</div>')
+            .replace(/\[([^\]]+)\]/g, '<span class="content">$1</span>')
+            .replace(/\n/g, '<br>');
+        
         return `
             <div class="ai-translation">
-                ${aiResponse.replace(/\n/g, '<br>')}
+                ${formattedResponse}
             </div>
         `;
     }
 
     async findTerm(word) {
         this.word = word;
+        const context = this.extractContext(word);
         
-        // 获取当前页面的选中文本上下文
-        let context = '';
-        try {
-            const selection = window.getSelection();
-            const range = selection.getRangeAt(0);
-            const container = range.commonAncestorContainer;
-            const paragraph = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
-            context = this.extractSentence(word, paragraph.textContent);
-        } catch (e) {
-            context = word;
-        }
-
         return new Promise(async (resolve, reject) => {
             try {
                 const aiResponse = await this.callAIAPI(word, context);
@@ -135,6 +151,18 @@ class escn_AIDict {
                     padding: 15px;
                     background-color: #f8f9fa;
                     border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .ai-translation .section-title {
+                    color: #2c5282;
+                    font-weight: 600;
+                    margin-top: 10px;
+                }
+                .ai-translation .content {
+                    color: #1a202c;
+                    background-color: #edf2f7;
+                    padding: 2px 5px;
+                    border-radius: 4px;
                 }
                 .ai-translation br {
                     margin-bottom: 8px;
