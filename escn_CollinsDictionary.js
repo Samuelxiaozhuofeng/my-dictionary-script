@@ -6,7 +6,7 @@ class escn_AIDict {
         // OpenRouter API配置
         this.apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
         this.apiKey = options?.apiKey || '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';
-        this.model = 'gpt-4'; // 使用GPT-4模型
+        this.model = 'gpt-4o'; // 使用GPT-4模型
         
         // 添加必要的headers
         this.headers = {
