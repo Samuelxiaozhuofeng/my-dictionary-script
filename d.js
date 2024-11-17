@@ -1,5 +1,5 @@
 /* global api */
-class encn_QwenDictContext {
+class encn_QwenContextDict {
     constructor() {
         this.apiKey = 'sk-fwzctttjlftqmedzftdfvowpxpnchohlbxbmyompgspcyxeg';
         this.baseURL = 'https://api.siliconflow.com/v1/chat/completions';
@@ -9,13 +9,28 @@ class encn_QwenDictContext {
 
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'Qwen上下文词典';
-        if (locale.indexOf('TW') != -1) return 'Qwen上下文詞典';
-        return 'Qwen Context Dictionary';
+        if (locale.indexOf('CN') != -1) return 'Qwen上下文英汉词典';
+        if (locale.indexOf('TW') != -1) return 'Qwen上下文英漢詞典';
+        return 'Qwen Context EN->CN Dictionary';
     }
 
     setOptions(options) {
         this.options = options;
+    }
+
+    // 获取选中文本的上下文句子
+    getContextSentence(text, word) {
+        // 将整个文本按句子分割（考虑多种句号）
+        const sentences = text.split(/(?<=[.!?。！？])\s+/);
+        
+        // 查找包含目标词的句子
+        for (let sentence of sentences) {
+            if (sentence.includes(word)) {
+                return sentence.trim();
+            }
+        }
+        
+        return word; // 如果找不到上下文句子，返回单词本身
     }
 
     // 构建带上下文的API请求消息
@@ -24,12 +39,15 @@ class encn_QwenDictContext {
             {
                 role: "system",
                 content: `你是一个专业的英汉词典助手。我会给你一个英文单词和它所在的句子。
-                请你：
-                1. 给出单词的基本信息（发音、词性）
-                2. 根据上下文解释这个单词在句子中的具体含义
-                3. 给出单词的其他常见含义
-                4. 提供2个相关的例句(中英对照)
-                请按照以上顺序组织内容，使用分点的方式呈现。`
+请你：
+1. 给出单词的发音
+2. 分析单词在句子中的词性
+3. 给出单词在这个具体语境下最准确的中文含义
+4. 解释为什么在这个语境下应该这样翻译
+5. 提供这个单词的其他常见含义
+6. 造一个相似语境的例句(中英对照)
+
+请用markdown格式输出。`
             },
             {
                 role: "user",
@@ -62,62 +80,54 @@ class encn_QwenDictContext {
         return data.choices[0].message.content;
     }
 
-    // 格式化返回内容
+    // 格式化API返回的内容
     formatContent(content) {
-        // 将换行转换为HTML换行
-        content = content.replace(/\n/g, '<br>');
-        
-        // 为数字编号添加样式
-        content = content.replace(/([1-4]\.)/g, '<strong>$1</strong>');
-        
-        // 为英文例句添加样式
-        content = content.replace(/([^。\n]+?)\s*[\(（]([^）\)]+)[\)）]/g, 
-            '<span class="example">$1</span><span class="translation">（$2）</span>');
-        
-        return `<div class="qwen-dict">${content}</div>`;
-    }
-
-    // 获取上下文句子
-    extractContext(selection) {
-        // 注意：这个函数应该由插件提供选中文本的完整句子
-        // 这里仅作为示例
-        return selection || this.word;
+        // 将markdown转换为HTML
+        return content
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // 粗体
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')              // 斜体
+            .replace(/\n\n/g, '<br><br>')                      // 段落
+            .replace(/\n/g, '<br>')                            // 换行
+            .replace(/#{1,6} (.*?)\n/g, '<div class="dict-header">$1</div>'); // 标题
     }
 
     // 主查询函数
-    async findTerm(word, selection) {
+    async findTerm(word) {
         this.word = word;
-        this.context = this.extractContext(selection);
         
         return new Promise(async (resolve, reject) => {
             try {
-                let content = await this.requestTranslation(this.word, this.context);
+                // 获取选中文本周围的上下文
+                let selection = window.getSelection();
+                let context = '';
+                
+                if (selection && selection.rangeCount > 0) {
+                    // 获取选中文本所在的段落或更大的容器
+                    let container = selection.getRangeAt(0).commonAncestorContainer;
+                    while (container && container.nodeType !== Node.ELEMENT_NODE) {
+                        container = container.parentNode;
+                    }
+                    
+                    if (container) {
+                        context = this.getContextSentence(container.textContent, word);
+                    }
+                }
+
+                // 如果没有找到上下文，使用单词本身
+                if (!context) {
+                    context = word;
+                }
+
+                let content = await this.requestTranslation(word, context);
                 content = this.formatContent(content);
+                
+                // 添加样式类以便于CSS定制
+                content = `<div class="qwen-dict-content">${content}</div>`;
+                
                 resolve(content);
             } catch (error) {
                 reject(error);
             }
         });
-    }
-
-    // 添加样式
-    async getStyles() {
-        return `
-        .qwen-dict {
-            font-family: Arial, sans-serif;
-            line-height: 1.5;
-        }
-        .qwen-dict strong {
-            color: #4a90e2;
-        }
-        .qwen-dict .example {
-            color: #333;
-            font-style: italic;
-        }
-        .qwen-dict .translation {
-            color: #666;
-            margin-left: 5px;
-        }
-        `;
     }
 }
