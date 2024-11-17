@@ -5,8 +5,16 @@ class escn_AIDict {
         this.word = '';
         // OpenRouter API配置
         this.apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
-        this.apiKey = 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 || ''; // API密钥需要从选项中获取
-        this.model = 'gpt-4o'; // 使用GPT-4模型
+        this.apiKey = options?.apiKey || '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';
+        this.model = 'gpt-4'; // 使用GPT-4模型
+        
+        // 添加必要的headers
+        this.headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+            'HTTP-Referer': 'https://github.com/ninja33/ODH', // OpenRouter需要referer
+            'X-Title': 'ODH Plugin'  // OpenRouter建议的标题
+        };
     }
 
     async displayName() {
@@ -18,7 +26,11 @@ class escn_AIDict {
 
     setOptions(options) {
         this.options = options;
-        this.apiKey = options.apiKey;
+        // 允许通过选项更新API密钥
+        if (options?.apiKey) {
+            this.apiKey = options.apiKey;
+            this.headers.Authorization = `Bearer ${this.apiKey}`;
+        }
     }
 
     // 获取选中词汇所在的句子
@@ -51,10 +63,7 @@ class escn_AIDict {
         try {
             const response = await fetch(this.apiEndpoint, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`,
-                },
+                headers: this.headers,
                 body: JSON.stringify({
                     model: this.model,
                     messages: [
@@ -124,6 +133,8 @@ class escn_AIDict {
                     line-height: 1.6;
                     color: #333;
                     padding: 15px;
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
                 }
                 .ai-translation br {
                     margin-bottom: 8px;
