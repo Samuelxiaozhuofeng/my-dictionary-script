@@ -6,6 +6,7 @@ class encn_QwenDict {
         this.word = '';
     }
 
+    // 显示词典名称
     async displayName() {
         let locale = await api.locale();
         if (locale.indexOf('CN') != -1) return 'Qwen2英汉词典';
@@ -13,11 +14,13 @@ class encn_QwenDict {
         return 'Qwen EN->CN Dictionary';
     }
 
+    // 设置选项
     setOptions(options) {
         this.options = options;
     }
 
-    buildMessage(expression, context) {
+    // 构建API请求消息
+    buildMessage(word) {
         return [
             {
                 role: "system",
@@ -25,14 +28,13 @@ class encn_QwenDict {
             },
             {
                 role: "user",
-                content: context ? 
-                    `词汇: ${expression}\n上下文: ${context}\n请解释这个词汇在当前上下文中的含义。` :
-                    expression
+                content: word
             }
         ];
     }
 
-    async requestTranslation(expression, context) {
+    // 发送API请求
+    async requestTranslation(word) {
         const response = await fetch(this.baseURL, {
             method: 'POST',
             headers: {
@@ -41,7 +43,7 @@ class encn_QwenDict {
             },
             body: JSON.stringify({
                 model: "Qwen/Qwen2.5-72B-Instruct",
-                messages: this.buildMessage(expression, context),
+                messages: this.buildMessage(word),
                 temperature: 0.7,
                 max_tokens: 800
             })
@@ -55,33 +57,23 @@ class encn_QwenDict {
         return data.choices[0].message.content;
     }
 
+    // 格式化API返回的内容
     formatContent(content) {
         return content.replace(/\n/g, '<br>');
     }
 
-    async findTerm(expression, context) {
-        this.word = expression;
+    // 主查询函数
+    async findTerm(word,context) {
+        this.word = word;
         
         return new Promise(async (resolve, reject) => {
             try {
-                let content = await this.requestTranslation(expression, context);
+                let content = await this.requestTranslation(word,context);
                 content = this.formatContent(content);
-                
-                resolve([{
-                    expression: expression,
-                    reading: '',
-                    extrainfo: context ? '基于上下文的解释' : '',
-                    definitions: [content],
-                    audios: [],
-                    css: ''
-                }]);
+                resolve(content);
             } catch (error) {
                 reject(error);
             }
         });
     }
-}
-
-if (typeof(window.registerDict) == 'function') {
-    window.registerDict('encn_QwenDict', encn_QwenDict);
 }
