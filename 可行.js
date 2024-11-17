@@ -24,7 +24,7 @@ class encn_QwenDict {
         return [
             {
                 role: "system",
-                content: "你是一个语言专家，能够识别句子的语言，并对其进行解释说明。"
+                content: "你是一个语言专家，能够识别词汇，并且根据上下文进行解释。"
             },
             {
                 role: "user",
