@@ -3,9 +3,9 @@ class escn_AIDict {
     constructor(options) {
         this.options = options;
         this.word = '';
-        this.apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
-        this.apiKey = options?.apiKey || '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';
-        this.model = 'gpt-4';
+        this.apiEndpoint = 'https://api.tu-zi.com/v1';
+        this.apiKey = options?.apiKey || 'sk-6y6iAyxmasnogzfI1aUGbXA3yx1u3HVWx2t2O3QaIQ135uum';
+        this.model = 'gpt-4o';
         this.headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${this.apiKey}`,
