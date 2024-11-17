@@ -9,8 +9,8 @@ class encn_QwenDict {
     // 显示词典名称
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'Qwen2英汉词典';
-        if (locale.indexOf('TW') != -1) return 'Qwen2英漢詞典';
+        if (locale.indexOf('CN') != -1) return '测试词典';
+        if (locale.indexOf('TW') != -1) return '测试词典';
         return 'Qwen EN->CN Dictionary';
     }
 
@@ -20,7 +20,7 @@ class encn_QwenDict {
     }
 
     // 构建API请求消息
-    buildMessage(word) {
+    buildMessage(word，context) {
         return [
             {
                 role: "system",
@@ -28,13 +28,13 @@ class encn_QwenDict {
             },
             {
                 role: "user",
-                content: word
+                content: word,context
             }
         ];
     }
 
     // 发送API请求
-    async requestTranslation(word) {
+    async requestTranslation(word,context) {
         const response = await fetch(this.baseURL, {
             method: 'POST',
             headers: {
@@ -43,7 +43,7 @@ class encn_QwenDict {
             },
             body: JSON.stringify({
                 model: "Qwen/Qwen2.5-72B-Instruct",
-                messages: this.buildMessage(word),
+                messages: this.buildMessage(word,conext),
                 temperature: 0.7,
                 max_tokens: 800
             })
