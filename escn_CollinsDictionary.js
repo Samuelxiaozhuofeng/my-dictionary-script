@@ -29,57 +29,19 @@ class escn_AIDict {
         }
     }
 
-    // 改进的上下文提取方法
-    extractContext(word) {
-        try {
-            const selection = window.getSelection();
-            if (!selection.rangeCount) return word;
-
-            const range = selection.getRangeAt(0);
-            let container = range.commonAncestorContainer;
-            
-            // 向上查找到最近的段落或标题元素
-            while (container && 
-                   container.nodeType !== Node.ELEMENT_NODE && 
-                   !['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'ARTICLE'].includes(container.nodeName)) {
-                container = container.parentNode;
-            }
-
-            // 如果没找到合适的容器，返回单词本身
-            if (!container) return word;
-
-            // 获取包含选中词的完整句子
-            const text = container.textContent || container.innerText;
-            const sentences = text.split(/([.!?。！？]+[\s\n]+|$)/g);
-            
-            for (let i = 0; i < sentences.length; i++) {
-                if (sentences[i].includes(word)) {
-                    // 获取前后句子进行拼接，提供更多上下文
-                    const prevSentence = i > 0 ? sentences[i-1] : '';
-                    const nextSentence = i < sentences.length - 1 ? sentences[i+1] : '';
-                    return (prevSentence + sentences[i] + nextSentence).trim();
-                }
-            }
-        } catch (e) {
-            console.error('Context extraction error:', e);
-        }
-        return word;
-    }
-
     async callAIAPI(word, context) {
         const prompt = `
-请分析以下西班牙语中的词语。给出的上下文是：
+请分析以下西班牙语中的词语。
+目标词语是："${word}"
+词语所在句子是："${context}"
 
-"${context}"
+请按照以下格式提供分析（务必保持格式统一）：
 
-需要分析的词语是："${word}"
-
-请按照以下格式提供分析：
-1. 基本释义：[给出最符合上下文的中文释义]
-2. 词性：[说明词性]
-3. 上下文分析：[分析该词在这句话中的具体含义和用法]
-4. 常见用法：[列举1-2个这个词的其他常见用法]
-5. 相关例句：[提供一个能体现相似用法的例句]
+基本释义：[给出最符合上下文的中文释义]
+词性：[标注词性]
+句子翻译：[将整句翻译成中文]
+重点分析：[分析该词在此语境中的具体含义和作用]
+其他说明：[补充该词的其他常用含义或用法]
 `;
 
         try {
@@ -105,17 +67,17 @@ class escn_AIDict {
             return data.choices[0].message.content;
         } catch (error) {
             console.error('AI API Error:', error);
-            return null;
+            return `翻译服务暂时不可用: ${error.message}`;
         }
     }
 
     formatResponse(aiResponse) {
         if (!aiResponse) return null;
         
-        // 添加样式类以区分不同部分
+        // 将格式化的响应转换为HTML
         const formattedResponse = aiResponse
-            .replace(/(\d+\.\s*[^：:]+[：:])/g, '<div class="section-title">$1</div>')
-            .replace(/\[([^\]]+)\]/g, '<span class="content">$1</span>')
+            .replace(/(基本释义|词性|句子翻译|重点分析|其他说明)：/g, '<div class="section-title">$1：</div>')
+            .replace(/\[([^\]]+)\]/g, '<div class="content">$1</div>')
             .replace(/\n/g, '<br>');
         
         return `
@@ -125,17 +87,23 @@ class escn_AIDict {
         `;
     }
 
-    async findTerm(word) {
+    async findTerm(word, context) {  // 修改这里，接收context参数
         this.word = word;
-        const context = this.extractContext(word);
+        
+        // 使用传入的context，如果没有则使用word本身
+        const sentence = context || word;
         
         return new Promise(async (resolve, reject) => {
             try {
-                const aiResponse = await this.callAIAPI(word, context);
+                console.log('Processing word:', word);  // 调试日志
+                console.log('Context:', sentence);      // 调试日志
+                
+                const aiResponse = await this.callAIAPI(word, sentence);
                 const formattedResponse = this.formatResponse(aiResponse);
                 const css = this.renderCSS();
                 resolve(formattedResponse ? css + formattedResponse : null);
             } catch (error) {
+                console.error('Processing error:', error);  // 调试日志
                 reject(error);
             }
         });
@@ -160,12 +128,10 @@ class escn_AIDict {
                 }
                 .ai-translation .content {
                     color: #1a202c;
-                    background-color: #edf2f7;
-                    padding: 2px 5px;
-                    border-radius: 4px;
+                    padding: 5px 0;
                 }
                 .ai-translation br {
-                    margin-bottom: 8px;
+                    margin-bottom: 4px;
                 }
             </style>
         `;
