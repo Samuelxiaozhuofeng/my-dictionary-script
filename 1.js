@@ -20,7 +20,7 @@ class encn_QwenDict {
     }
 
     // 构建API请求消息
-    buildMessage(word，context) {
+    buildMessage(word, context) {
         return [
             {
                 role: "system",
@@ -28,13 +28,13 @@ class encn_QwenDict {
             },
             {
                 role: "user",
-                content: word,context
+                content: context ? `${word}\n上下文：${context}` : word
             }
         ];
     }
 
     // 发送API请求
-    async requestTranslation(word,context) {
+    async requestTranslation(word, context) {
         const response = await fetch(this.baseURL, {
             method: 'POST',
             headers: {
@@ -43,7 +43,7 @@ class encn_QwenDict {
             },
             body: JSON.stringify({
                 model: "Qwen/Qwen2.5-72B-Instruct",
-                messages: this.buildMessage(word,conext),
+                messages: this.buildMessage(word, context),
                 temperature: 0.7,
                 max_tokens: 800
             })
@@ -63,12 +63,12 @@ class encn_QwenDict {
     }
 
     // 主查询函数
-    async findTerm(word,context) {
+    async findTerm(word, context) {
         this.word = word;
         
         return new Promise(async (resolve, reject) => {
             try {
-                let content = await this.requestTranslation(word,context);
+                let content = await this.requestTranslation(word, context);
                 content = this.formatContent(content);
                 resolve(content);
             } catch (error) {
