@@ -9,8 +9,8 @@ class encn_QwenDict {
     // 显示词典名称
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return '测试词典';
-        if (locale.indexOf('TW') != -1) return '测试词典';
+        if (locale.indexOf('CN') != -1) return '测试1';
+        if (locale.indexOf('TW') != -1) return '测试1';
         return 'Qwen EN->CN Dictionary';
     }
 
