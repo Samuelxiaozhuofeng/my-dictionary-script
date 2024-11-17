@@ -2,15 +2,15 @@
 class encn_QwenContextDict {
     constructor() {
         this.apiKey = 'sk-fwzctttjlftqmedzftdfvowpxpnchohlbxbmyompgspcyxeg';
-        this.baseURL = 'https://api.siliconflow.com/v1/chat/completions';
+        this.baseURL = 'https://api.siliconflow.cn/v1/chat/completions';
         this.word = '';
         this.context = '';
     }
 
     async displayName() {
         let locale = await api.locale();
-        if (locale.indexOf('CN') != -1) return 'Qwen上下文英汉词典';
-        if (locale.indexOf('TW') != -1) return 'Qwen上下文英漢詞典';
+        if (locale.indexOf('CN') != -1) return 'Qwen1上下文英汉词典';
+        if (locale.indexOf('TW') != -1) return 'Qwen1上下文英漢詞典';
         return 'Qwen Context EN->CN Dictionary';
     }
 
