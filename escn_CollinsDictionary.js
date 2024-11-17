@@ -1,118 +1,95 @@
-/* global api */
-class escn_GPTDict {
+class eszh_GPT4Translator {
     constructor(options) {
         this.options = options;
-        this.word = '';
         this.apiKey = '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';
-        this.apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+        this.apiUrl = 'https://api.openrouter.ai/v1/completions';
+        this.word = '';
+        this.sentence = '';
     }
 
     async displayName() {
-        return 'GPT西汉智能词典';
+        let locale = await api.locale();
+        if (locale.indexOf('CN') != -1) return 'GPT-4o 西-中 词典';
+        if (locale.indexOf('TW') != -1) return 'GPT-4o 西-中 词典';
+        return 'GPT-4o ES->ZH Dictionary';
     }
 
     setOptions(options) {
         this.options = options;
     }
 
-    // 获取选中词汇所在的句子
-    extractSentence(text, word) {
-        const sentences = text.match(/[^.!?。！？]+[.!?。！？]+/g) || [text];
-        return sentences.find(sentence => sentence.includes(word)) || word;
+    async findTerm(word, sentence) {
+        this.word = word;
+        this.sentence = sentence;
+        return await this.queryGPT4o(word, sentence);
     }
 
-    async findTerm(word) {
-        this.word = word;
+    async queryGPT4o(word, sentence) {
+        if (!word) return null;
         
-        // 获取当前页面的文本内容
-        const pageText = document.body.innerText;
-        const contextSentence = this.extractSentence(pageText, word);
-
-        // 构建发送给GPT的提示
-        const prompt = `
-请你作为西班牙语翻译专家，解析以下句子中的"${word}"：
-
-句子上下文：${contextSentence}
-
-请按照以下格式提供分析：
-1. 词性：
-2. 基本含义：
-3. 在此句中的具体含义：
-4. 词形变化（如果有）：
-5. 使用说明：
-
-请用中文回答。
-`;
+        // Prepare the prompt for GPT-4o
+        const prompt = `请根据以下句子中的语境，解释并翻译其中的词汇 "${word}" 。句子："${sentence}"。`;
+        
+        // Setup request payload
+        const payload = {
+            model: 'gpt-4o',
+            prompt: prompt,
+            max_tokens: 150,
+            temperature: 0.7,
+            top_p: 1.0
+        };
+        
+        // Set up request headers
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+        };
 
         try {
-            const response = await fetch(this.apiUrl, {
+            // Send the request to the API
+            let response = await fetch(this.apiUrl, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'gpt-4',
-                    messages: [{
-                        role: 'user',
-                        content: prompt
-                    }]
-                })
+                headers: headers,
+                body: JSON.stringify(payload)
             });
 
-            const data = await response.json();
-            if (!data.choices || !data.choices[0]) {
-                throw new Error('No response from GPT');
+            if (!response.ok) {
+                throw new Error('API request failed');
             }
 
-            const analysis = data.choices[0].message.content;
-            return this.formatResponse(analysis);
-        } catch (error) {
-            console.error('GPT API Error:', error);
+            let data = await response.json();
+            let explanation = data.choices && data.choices.length > 0 ? data.choices[0].text.trim() : null;
+
+            if (!explanation) return null;
+
+            // Return explanation as HTML content
+            let css = this.renderCSS();
+            return css + `<div class='gpt4-response'>${explanation}</div>`;
+        } catch (err) {
+            console.error('Error fetching from GPT-4o API:', err);
             return null;
         }
     }
 
-    formatResponse(analysis) {
-        // 添加样式
-        const css = this.renderCSS();
-        
-        // 格式化GPT返回的内容
-        const formattedContent = `
-            <div class="gpt-dict-container">
-                <div class="word-header">${this.word}</div>
-                <div class="analysis-content">
-                    ${analysis.replace(/\n/g, '<br>')}
-                </div>
-            </div>
-        `;
-
-        return css + formattedContent;
-    }
-
     renderCSS() {
-        return `
+        let css = `
             <style>
-                .gpt-dict-container {
-                    font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
-                    padding: 15px;
-                    line-height: 1.5;
-                }
-                .word-header {
-                    font-size: 1.2em;
-                    font-weight: bold;
-                    color: #2c3e50;
-                    margin-bottom: 10px;
-                    padding-bottom: 5px;
-                    border-bottom: 2px solid #3498db;
-                }
-                .analysis-content {
-                    color: #34495e;
-                }
-                .analysis-content br {
-                    margin: 5px 0;
-                }
-            </style>
-        `;
+            .gpt4-response {
+                font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f9f9f9;
+                padding: 10px;
+                border-radius: 4px;
+            }
+            </style>`;
+        return css;
     }
 }
+
+/*
+使用说明：
+1. 将此类保存到插件的词典目录下。
+2. 在插件的选项中，启用此自定义词典以便使用GPT-4o进行西班牙语到中文的翻译。
+3. 用户在网页中划词后，插件将会调用此脚本，通过GPT-4o提供结合上下文的翻译和解释。
+*/
