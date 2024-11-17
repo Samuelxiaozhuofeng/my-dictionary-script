@@ -1,72 +1,133 @@
 /* global api */
-class GPT4o_Dictionary {
+class escn_AIDict {
     constructor(options) {
         this.options = options;
         this.word = '';
-        this.apiKey = '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'; // 这里填写你的OpenRouter API密钥
-        this.apiUrl = 'https://api.openrouter.ai/v1/completions'; // OpenRouter的API地址
+        // OpenRouter API配置
+        this.apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
+        this.apiKey = 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 || ''; // API密钥需要从选项中获取
+        this.model = 'gpt-4o'; // 使用GPT-4模型
     }
 
     async displayName() {
-        return 'GPT-4o Dictionary (ES->EN)';
+        let locale = await api.locale();
+        if (locale.indexOf('CN') != -1) return 'AI上下文翻译';
+        if (locale.indexOf('TW') != -1) return 'AI上下文翻译';
+        return 'AI Context Translation';
     }
 
     setOptions(options) {
         this.options = options;
+        this.apiKey = options.apiKey;
     }
 
-    async findTerm(word) {
-        this.word = word;
-        if (!word) return null;
-
-        // 通过OpenRouter API查询单词
-        let query = `Define the Spanish word "${word}" and provide synonyms.`;
-        let response = await this.queryGPT4o(query);
-        if (!response) return null;
-
-        return this.formatResult(response);
+    // 获取选中词汇所在的句子
+    extractSentence(word, text) {
+        // 简单的句子提取逻辑，可以根据需要优化
+        const sentences = text.split(/[.!?。！？]\s+/);
+        for (let sentence of sentences) {
+            if (sentence.includes(word)) {
+                return sentence.trim();
+            }
+        }
+        return word; // 如果找不到完整句子，则返回单词本身
     }
 
-    async queryGPT4o(query) {
+    // 调用AI API进行翻译
+    async callAIAPI(word, context) {
+        const prompt = `
+请将以下西班牙语单词进行翻译，并提供分析。请按照以下格式返回：
+词语：[西班牙语单词]
+上下文：[所在句子]
+释义：[中文翻译]
+词性：[词性说明]
+语境分析：[根据上下文解释该词在句子中的具体含义]
+例句：[另外举一个例句]
+
+单词: ${word}
+上下文句子: ${context}
+`;
+
         try {
-            let response = await fetch(this.apiUrl, {
+            const response = await fetch(this.apiEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`
+                    'Authorization': `Bearer ${this.apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: "gpt-4o",
-                    prompt: query,
-                    max_tokens: 150
+                    model: this.model,
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt
+                        }
+                    ]
                 })
             });
 
-            let data = await response.json();
-            return data.choices[0].text.trim();
-        } catch (err) {
-            console.error("Error querying GPT-4o: ", err);
+            if (!response.ok) {
+                throw new Error('API request failed');
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content;
+        } catch (error) {
+            console.error('AI API Error:', error);
             return null;
         }
     }
 
-    formatResult(response) {
-        // 格式化从GPT-4o获得的结果以适合显示
-        let definitions = response.split('\n').map(line => `<span class="exp">${line}</span>`);
+    // 格式化AI返回的结果
+    formatResponse(aiResponse) {
+        if (!aiResponse) return null;
+        
+        return `
+            <div class="ai-translation">
+                ${aiResponse.replace(/\n/g, '<br>')}
+            </div>
+        `;
+    }
 
-        let css = this.renderCSS();
-        return [{
-            css,
-            expression: this.word,
-            definitions: definitions,
-            audios: []  // GPT-4o没有语音功能，但可扩展
-        }];
+    async findTerm(word) {
+        this.word = word;
+        
+        // 获取当前页面的选中文本上下文
+        let context = '';
+        try {
+            const selection = window.getSelection();
+            const range = selection.getRangeAt(0);
+            const container = range.commonAncestorContainer;
+            const paragraph = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
+            context = this.extractSentence(word, paragraph.textContent);
+        } catch (e) {
+            context = word;
+        }
+
+        return new Promise(async (resolve, reject) => {
+            try {
+                const aiResponse = await this.callAIAPI(word, context);
+                const formattedResponse = this.formatResponse(aiResponse);
+                const css = this.renderCSS();
+                resolve(formattedResponse ? css + formattedResponse : null);
+            } catch (error) {
+                reject(error);
+            }
+        });
     }
 
     renderCSS() {
         return `
             <style>
-            span.exp { display: block; color: #333; font-size: 1em; }
+                .ai-translation {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    padding: 15px;
+                }
+                .ai-translation br {
+                    margin-bottom: 8px;
+                }
             </style>
         `;
     }
